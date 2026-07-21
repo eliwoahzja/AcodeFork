@@ -1,0 +1,73 @@
+name: Build AI Autocomplete APK
+
+on:
+  push:
+    branches:
+      - feature/ai-autocomplete
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-autocomplete-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build downloadable debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/*"
+
+      - name: Install project dependencies
+        run: |
+          npm install
+          npm install --global cordova
+          npm run setup
+
+      - name: Build debug APK
+        run: |
+          node utils/storage_manager.mjs y
+          npm run build paid dev apk
+
+      - name: Name APK and generate checksum
+        id: artifact
+        shell: bash
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          APK_NAME="Acode-AI-Autocomplete-${SHORT_SHA}-debug.apk"
+          cp platforms/android/app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
+          sha256sum "$APK_NAME" > "$APK_NAME.sha256"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=Acode-AI-Autocomplete-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload downloadable APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.artifact.outputs.artifact_name }}
+          path: |
+            ${{ steps.artifact.outputs.apk_name }}
+            ${{ steps.artifact.outputs.apk_name }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Add download instructions
+        run: |
+          echo "## APK ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the **${{ steps.artifact.outputs.artifact_name }}** artifact from this workflow run." >> "$GITHUB_STEP_SUMMARY"
+          echo "The ZIP contains the debug APK and its SHA-256 checksum." >> "$GITHUB_STEP_SUMMARY"
