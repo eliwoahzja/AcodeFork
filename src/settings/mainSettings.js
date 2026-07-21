@@ -17,6 +17,7 @@ import Sponsors from "pages/sponsors";
 import themeSetting from "pages/themeSetting";
 import helpers from "utils/helpers";
 import About from "../pages/about";
+import aiSettings from "./aiSettings";
 import otherSettings from "./appSettings";
 import backupRestore from "./backupRestore";
 import editorSettings from "./editorSettings";
@@ -51,6 +52,14 @@ export default function mainSettings() {
 			text: strings["editor settings"],
 			icon: "text_format",
 			info: strings["settings-info-main-editor-settings"],
+			category: categories.core,
+			chevron: true,
+		},
+		{
+			key: "ai-settings",
+			text: "AI Autocomplete",
+			icon: "auto_awesome",
+			info: "Managed or BYOK inline code suggestions with touch controls.",
 			category: categories.core,
 			chevron: true,
 		},
@@ -211,6 +220,7 @@ export default function mainSettings() {
 			case "app-settings":
 			case "backup-restore":
 			case "editor-settings":
+			case "ai-settings":
 			case "preview-settings":
 			case "terminal-settings":
 			case "lsp-settings":
@@ -334,6 +344,7 @@ export default function mainSettings() {
 		"file-settings": filesSettings,
 		"backup-restore": backupRestore,
 		"editor-settings": editorSettings,
+		"ai-settings": aiSettings,
 		"scroll-settings": scrollSettings,
 		"search-settings": searchSettings,
 		"preview-settings": previewSettings,

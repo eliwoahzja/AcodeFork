@@ -16,6 +16,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.Locale;
 import org.apache.cordova.*;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -30,6 +31,8 @@ public class Authenticator extends CordovaPlugin {
     private static final String KEY_PENDING_STATE = "pending_login_state";
     private static final String KEY_PENDING_VERIFIER = "pending_login_verifier";
     private static final String KEY_PENDING_BASE_URL = "pending_login_base_url";
+    private static final String AI_KEY_PREFIX = "ai_provider_key_";
+    private static final int MAX_AI_KEY_LENGTH = 16_384;
     private static final int AUTH_CONNECT_TIMEOUT_MS = 15_000;
     private static final int AUTH_READ_TIMEOUT_MS = 30_000;
     private static final String[] API_ORIGINS = {
@@ -82,6 +85,37 @@ public class Authenticator extends CordovaPlugin {
                 cordova.getActivity().runOnUiThread(() -> setTokenCookie(token));
                 callbackContext.success();
                 return true;
+            case "saveAiKey":
+                if (!ensureEncryptedStorage(callbackContext)) return true;
+                String saveProvider = requireAiProvider(args.getString(0));
+                String apiKey = args.getString(1).trim();
+                if (apiKey.isEmpty()) {
+                    callbackContext.error("API key cannot be empty");
+                    return true;
+                }
+                if (apiKey.length() > MAX_AI_KEY_LENGTH) {
+                    callbackContext.error("API key is too long");
+                    return true;
+                }
+                prefManager.setString(AI_KEY_PREFIX + saveProvider, apiKey);
+                callbackContext.success();
+                return true;
+            case "getAiKey":
+                if (!ensureEncryptedStorage(callbackContext)) return true;
+                String getProvider = requireAiProvider(args.getString(0));
+                callbackContext.success(prefManager.getString(AI_KEY_PREFIX + getProvider, ""));
+                return true;
+            case "hasAiKey":
+                if (!ensureEncryptedStorage(callbackContext)) return true;
+                String hasProvider = requireAiProvider(args.getString(0));
+                callbackContext.success(prefManager.exists(AI_KEY_PREFIX + hasProvider) ? 1 : 0);
+                return true;
+            case "deleteAiKey":
+                if (!ensureEncryptedStorage(callbackContext)) return true;
+                String deleteProvider = requireAiProvider(args.getString(0));
+                prefManager.remove(AI_KEY_PREFIX + deleteProvider);
+                callbackContext.success();
+                return true;
             case "login":
                 JSONObject options = args.optJSONObject(0);
                 startLogin(options != null ? options : new JSONObject(), callbackContext);
@@ -97,6 +131,22 @@ public class Authenticator extends CordovaPlugin {
         if (!handleAuthCallback(intent)) {
             super.onNewIntent(intent);
         }
+    }
+
+    private boolean ensureEncryptedStorage(CallbackContext callbackContext) {
+        if (prefManager != null && prefManager.isEncrypted()) {
+            return true;
+        }
+        callbackContext.error("Encrypted storage is unavailable on this device");
+        return false;
+    }
+
+    private String requireAiProvider(String provider) throws JSONException {
+        String normalized = provider == null ? "" : provider.trim().toLowerCase(Locale.ROOT);
+        if (!normalized.matches("^[a-z0-9_-]{1,40}$")) {
+            throw new JSONException("Invalid AI provider identifier");
+        }
+        return normalized;
     }
 
     private void startLogin(JSONObject options, CallbackContext callbackContext) {

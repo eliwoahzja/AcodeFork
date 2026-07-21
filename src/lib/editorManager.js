@@ -28,6 +28,7 @@ import {
 	expandAbbreviation,
 	wrapWithAbbreviation,
 } from "@emmetio/codemirror6-plugin";
+import aiInlineCompletion from "cm/aiInlineCompletion";
 import createBaseExtensions from "cm/baseExtensions";
 import {
 	setKeyBindings as applyKeyBindings,
@@ -930,6 +931,8 @@ async function EditorManager($header, $body) {
 	const completionCompartment = new Compartment();
 	// Compartment for local document word completions
 	const localWordCompletionCompartment = new Compartment();
+	// Compartment for optional AI inline ghost-text completions
+	const aiInlineCompletionCompartment = new Compartment();
 	// Compartment for rainbow bracket colorizer
 	const rainbowCompartment = new Compartment();
 	// Compartment for indent guides
@@ -1265,6 +1268,24 @@ async function EditorManager($header, $body) {
 			build() {
 				const enabled = !!appSettings?.value?.localWordCompletion;
 				return enabled ? localWordCompletions() : [];
+			},
+		},
+		{
+			keys: ["aiCompletion"],
+			compartments: [aiInlineCompletionCompartment],
+			build() {
+				const aiSettings = appSettings?.value?.aiCompletion;
+				if (!aiSettings?.enabled) return [];
+				return aiInlineCompletion({
+					getSettings: () => appSettings?.value?.aiCompletion || {},
+					getFileContext(targetView) {
+						const file = targetView.__editorPane?.activeFile;
+						return {
+							filename: file?.filename || file?.name || "untitled",
+							language: getFileLanguageId(file),
+						};
+					},
+				});
 			},
 		},
 		{
@@ -3471,6 +3492,10 @@ async function EditorManager($header, $body) {
 
 	appSettings.on("update:languageCompletion", function () {
 		applyOptions(["languageCompletion"]);
+	});
+
+	appSettings.on("update:aiCompletion", function () {
+		applyOptions(["aiCompletion"]);
 	});
 
 	appSettings.on("update:useEmmet", function () {

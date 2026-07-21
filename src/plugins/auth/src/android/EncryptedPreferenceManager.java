@@ -9,6 +9,7 @@ import java.security.GeneralSecurityException;
 
 public class EncryptedPreferenceManager {
     private SharedPreferences sharedPreferences;
+    private boolean encrypted;
 
     /**
      * @param context  The Android Context
@@ -26,9 +27,12 @@ public class EncryptedPreferenceManager {
                     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             );
+            encrypted = true;
         } catch (GeneralSecurityException | IOException e) {
-            // Fallback to standard private preferences if hardware-backed encryption fails
+            // Existing authentication data retains its private-preferences fallback.
+            // Callers storing third-party API keys must check isEncrypted() and fail closed.
             sharedPreferences = context.getSharedPreferences(prefName, Context.MODE_PRIVATE);
+            encrypted = false;
         }
     }
 
@@ -64,6 +68,10 @@ public class EncryptedPreferenceManager {
 
     public boolean exists(String key) {
         return sharedPreferences.contains(key);
+    }
+
+    public boolean isEncrypted() {
+        return encrypted;
     }
 
     public void clear() {

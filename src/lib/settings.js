@@ -40,6 +40,16 @@ class Settings {
 		regExp: false,
 		wholeWord: false,
 	};
+	#aiCompletionSettings = {
+		enabled: false,
+		mode: "managed",
+		managedEndpoint: "",
+		provider: "openrouter",
+		endpoint: "",
+		model: "",
+		maxTokens: 128,
+		debounceMs: 650,
+	};
 	#fileBrowserSettings = {
 		showHiddenFiles: false,
 		sortByName: true,
@@ -195,6 +205,7 @@ class Settings {
 			excludeFolders: this.#excludeFolders,
 			defaultFileEncoding: "UTF-8",
 			inlineAutoCompletion: true,
+			aiCompletion: this.#aiCompletionSettings,
 			colorPreview: true,
 			maxRetryCount: 3,
 			showRetryToast: false,
@@ -254,6 +265,22 @@ class Settings {
 					settings[setting] = this.#defaultSettings[setting];
 				}
 			});
+
+			// Nested AI settings need a deep default merge for older settings files.
+			const savedAiSettings = settings.aiCompletion;
+			settings.aiCompletion = { ...this.#aiCompletionSettings };
+			if (savedAiSettings && typeof savedAiSettings === "object") {
+				for (const [key, defaultValue] of Object.entries(
+					this.#aiCompletionSettings,
+				)) {
+					if (typeof savedAiSettings[key] === typeof defaultValue) {
+						settings.aiCompletion[key] = savedAiSettings[key];
+					}
+				}
+			}
+			// Provider secrets are only accepted by the Android encrypted key vault.
+			delete settings.aiCompletion.apiKey;
+			delete settings.aiCompletion.key;
 
 			this.value = structuredClone(settings);
 			this.#oldSettings = structuredClone(settings);

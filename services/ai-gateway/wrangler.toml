@@ -1,0 +1,14 @@
+name = "acode-ai-gateway"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://localhost,http://localhost"
+GEMINI_MODEL = "gemini-2.5-flash"
+NVIDIA_MODEL = "meta/llama-3.1-70b-instruct"
+RATE_LIMIT_PER_MINUTE = "30"
+REQUEST_TIMEOUT_MS = "20000"
+
+# Configure provider credentials as Worker secrets, never vars or source:
+# wrangler secret put GEMINI_API_KEY
+# wrangler secret put NVIDIA_API_KEY
