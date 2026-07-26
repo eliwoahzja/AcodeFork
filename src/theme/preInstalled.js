@@ -595,6 +595,30 @@ catppuccin.scrollbarColor = "rgba(205, 214, 244, 0.1)";
 catppuccin.preferredEditorTheme = "nord";
 catppuccin.preferredTerminalTheme = "ocean";
 
+const vscodeTheme = createBuiltInTheme("VS Code");
+vscodeTheme.darkenedPrimaryColor = "rgb(30, 30, 30)";
+vscodeTheme.primaryColor = "rgb(37, 37, 38)";
+vscodeTheme.primaryTextColor = "rgb(204, 204, 204)";
+vscodeTheme.secondaryColor = "rgb(45, 45, 45)";
+vscodeTheme.secondaryTextColor = "rgb(150, 150, 150)";
+vscodeTheme.activeColor = "rgb(0, 122, 204)";
+vscodeTheme.linkTextColor = "rgb(55, 148, 255)";
+vscodeTheme.borderColor = "rgba(255, 255, 255, 0.1)";
+vscodeTheme.popupIconColor = "rgb(204, 204, 204)";
+vscodeTheme.popupBackgroundColor = "rgb(37, 37, 38)";
+vscodeTheme.popupTextColor = "rgb(204, 204, 204)";
+vscodeTheme.popupActiveColor = "rgb(0, 122, 204)";
+vscodeTheme.buttonBackgroundColor = "rgb(0, 122, 204)";
+vscodeTheme.buttonTextColor = "rgb(255, 255, 255)";
+vscodeTheme.buttonActiveColor = "rgb(0, 102, 178)";
+vscodeTheme.boxShadowColor = "rgba(0, 0, 0, 0.36)";
+vscodeTheme.activeTextColor = "rgb(255, 255, 255)";
+vscodeTheme.errorTextColor = "rgb(244, 135, 113)";
+vscodeTheme.dangerColor = "rgb(241, 76, 76)";
+vscodeTheme.scrollbarColor = "rgba(121, 121, 121, 0.4)";
+vscodeTheme.preferredEditorTheme = "one_dark";
+vscodeTheme.preferredTerminalTheme = "oneDark";
+
 export default [
 	system,
 	createBuiltInTheme("Legacy", "dark", "free"),
@@ -621,5 +645,6 @@ export default [
 	blossom,
 	dracula,
 	catppuccin,
+	vscodeTheme,
 	custom,
 ];
