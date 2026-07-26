@@ -42,11 +42,11 @@ class Settings {
 	};
 	#aiCompletionSettings = {
 		enabled: true,
-		mode: "managed",
+		mode: "byok",
 		managedEndpoint: "",
-		provider: "openrouter",
-		endpoint: "",
-		model: "",
+		provider: "nvidia",
+		endpoint: "https://integrate.api.nvidia.com/v1",
+		model: "meta/llama-3.1-70b-instruct",
 		maxTokens: 128,
 		debounceMs: 650,
 	};

@@ -8,11 +8,11 @@ import appSettings from "lib/settings";
 
 const fallbackSettings = {
 	enabled: true,
-	mode: "managed",
+	mode: "byok",
 	managedEndpoint: "",
-	provider: "openrouter",
-	endpoint: "",
-	model: "",
+	provider: "nvidia",
+	endpoint: "https://integrate.api.nvidia.com/v1",
+	model: "meta/llama-3.1-70b-instruct",
 	maxTokens: 128,
 	debounceMs: 650,
 };
@@ -72,12 +72,12 @@ function createPage() {
 			text: "Connection mode",
 			value: values.mode,
 			select: [
-				["managed", "Managed (recommended)"],
-				["byok", "Bring your own API key"],
+				["byok", "Bring your own API key (recommended)"],
+				["managed", "Managed"],
 			],
 			valueText: (value) =>
 				value === "byok" ? "Bring your own key" : "Managed",
-			info: "Managed mode never stores provider credentials in the APK.",
+			info: "BYOK uses a free provider (NVIDIA NIM by default). Managed mode requires a custom gateway URL.",
 			category: categories.general,
 		},
 		{
@@ -118,7 +118,7 @@ function createPage() {
 					return !value || /^https?:\/\//i.test(String(value));
 				},
 			},
-			info: "Optional for presets. HTTP is allowed for local providers such as Ollama.",
+			info: "Preset is applied automatically. Override only for custom deployments.",
 			category: categories.byok,
 		},
 		{
@@ -128,7 +128,7 @@ function createPage() {
 			valueText: (value) => value || preset.model || "Required",
 			prompt: "Model identifier (leave empty to use the provider default)",
 			promptOptions: { capitalize: false },
-			info: "Provider-specific model name.",
+			info: "Preset is applied automatically. Override only to use a different model.",
 			category: categories.byok,
 		},
 		{
@@ -212,9 +212,16 @@ function createPage() {
 					toast("API key deleted.");
 					return;
 				}
-				case "provider":
-					await updateAiSettings({ provider: value, endpoint: "", model: "" });
+				case "provider": {
+					const preset = getProviderPreset(value);
+					await updateAiSettings({
+						provider: value,
+						endpoint: preset.endpoint || "",
+						model: preset.model || "",
+					});
+					toast(`Provider set to ${preset.label}.`);
 					return;
+				}
 				default:
 					await updateAiSettings({ [key]: value });
 			}
