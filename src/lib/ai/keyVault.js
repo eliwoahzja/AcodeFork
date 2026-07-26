@@ -1,4 +1,5 @@
 const SERVICE = "Authenticator";
+const STORAGE_KEY = "acode_ai_keys";
 
 function exec(action, args = []) {
 	return new Promise((resolve, reject) => {
@@ -20,22 +21,57 @@ function normalizeProvider(provider) {
 	return value;
 }
 
+function getLocalStore() {
+	try {
+		return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+	} catch {
+		return {};
+	}
+}
+
+function setLocalStore(store) {
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+}
+
 export async function saveApiKey(provider, apiKey) {
 	const normalized = normalizeProvider(provider);
 	const secret = String(apiKey || "").trim();
 	if (!secret) throw new Error("API key cannot be empty.");
-	await exec("saveAiKey", [normalized, secret]);
+	try {
+		await exec("saveAiKey", [normalized, secret]);
+	} catch {
+		const store = getLocalStore();
+		store[normalized] = secret;
+		setLocalStore(store);
+	}
 }
 
 export async function getApiKey(provider) {
-	const value = await exec("getAiKey", [normalizeProvider(provider)]);
-	return typeof value === "string" ? value : "";
+	const normalized = normalizeProvider(provider);
+	try {
+		const value = await exec("getAiKey", [normalized]);
+		return typeof value === "string" ? value : "";
+	} catch {
+		return getLocalStore()[normalized] || "";
+	}
 }
 
 export async function hasApiKey(provider) {
-	return !!(await exec("hasAiKey", [normalizeProvider(provider)]));
+	const normalized = normalizeProvider(provider);
+	try {
+		return !!(await exec("hasAiKey", [normalized]));
+	} catch {
+		return !!getLocalStore()[normalized];
+	}
 }
 
 export async function deleteApiKey(provider) {
-	await exec("deleteAiKey", [normalizeProvider(provider)]);
+	const normalized = normalizeProvider(provider);
+	try {
+		await exec("deleteAiKey", [normalized]);
+	} catch {
+		const store = getLocalStore();
+		delete store[normalized];
+		setLocalStore(store);
+	}
 }

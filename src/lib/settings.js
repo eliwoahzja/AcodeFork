@@ -41,7 +41,7 @@ class Settings {
 		wholeWord: false,
 	};
 	#aiCompletionSettings = {
-		enabled: false,
+		enabled: true,
 		mode: "managed",
 		managedEndpoint: "",
 		provider: "openrouter",
