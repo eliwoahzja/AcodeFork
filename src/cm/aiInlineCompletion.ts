@@ -9,6 +9,7 @@ import {
 	WidgetType,
 } from "@codemirror/view";
 import { requestInlineCompletion } from "lib/ai/completionService";
+import prompt from "dialogs/prompt";
 
 interface AiCompletionSettings {
 	enabled?: boolean;
@@ -166,10 +167,12 @@ export default function aiInlineCompletion(
 
 			update(update: ViewUpdate): void {
 				let effectSeen = false;
+				let effectValue = null;
 				for (const transaction of update.transactions) {
 					for (const effect of transaction.effects) {
 						if (!effect.is(setSuggestion)) continue;
 						effectSeen = true;
+						effectValue = effect.value;
 						this.show(effect.value);
 					}
 				}
@@ -179,7 +182,12 @@ export default function aiInlineCompletion(
 					return;
 				}
 
-				if (effectSeen) return;
+				if (effectSeen) {
+					if (!effectValue && update.docChanged) {
+						this.schedule();
+					}
+					return;
+				}
 
 				if (update.docChanged || update.selectionSet) {
 					this.cancelAndClear();
@@ -199,7 +207,7 @@ export default function aiInlineCompletion(
 				}, delay);
 			}
 
-			async fetch(): Promise<void> {
+			async fetch(instruction?: string): Promise<void> {
 				const settings = config.getSettings();
 				const selection = this.view.state.selection.main;
 				if (!settings?.enabled || !selection.empty) return;
@@ -216,6 +224,7 @@ export default function aiInlineCompletion(
 						suffix: doc.sliceString(from, Math.min(doc.length, from + 4_000)),
 						filename: metadata.filename || "untitled",
 						language: metadata.language || "text",
+						instruction: instruction,
 					},
 					settings,
 				) as CancellableRequest;
@@ -284,7 +293,12 @@ export default function aiInlineCompletion(
 
 			dismiss(): boolean {
 				if (!this.suggestion) return false;
-				this.cancelAndClear();
+				this.generation++;
+				if (this.timer) clearTimeout(this.timer);
+				this.timer = null;
+				this.request?.cancel();
+				this.request = null;
+				this.view.dispatch({ effects: setSuggestion.of(null) });
 				return true;
 			}
 
@@ -315,6 +329,27 @@ export default function aiInlineCompletion(
 			{
 				key: "Escape",
 				run: (view) => view.plugin(pluginExtension)?.dismiss() ?? false,
+			},
+			{
+				key: "Alt-\\",
+				run: (view) => {
+					view.plugin(pluginExtension)?.fetch();
+					return true;
+				},
+			},
+			{
+				key: "Alt-a",
+				run: (view) => {
+					prompt("AI Context", "", "text", {
+						placeholder: "e.g. generate a fetch function",
+						required: true,
+					}).then((instruction) => {
+						if (instruction) {
+							view.plugin(pluginExtension)?.fetch(String(instruction));
+						}
+					});
+					return true;
+				},
 			},
 		]),
 	);

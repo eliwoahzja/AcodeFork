@@ -104,8 +104,8 @@ function setSponsorSidebarAppVisibility(visible) {
 		if ($sponsorIcon?.isConnected) return;
 		$sponsorIcon = (
 			<span
-				className="icon favorite"
-				title={strings.sponsor}
+				className="icon github"
+				title="Developer Profile"
 				onclick={Sponsors}
 			/>
 		);

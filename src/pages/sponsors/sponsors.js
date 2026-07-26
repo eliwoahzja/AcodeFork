@@ -1,223 +1,70 @@
 import "./style.scss";
 import Page from "components/page";
-import toast from "components/toast";
-import Ref from "html-tag-js/ref";
 import actionStack from "lib/actionStack";
-import config from "lib/config";
-import Sponsor from "pages/sponsor";
-import helpers from "utils/helpers";
 
 export default function Sponsors() {
-	const page = Page("Sponsors");
-	const titaniumSponsors = Ref();
-	const platinumSponsors = Ref();
-	const goldSponsors = Ref();
-	const silverSponsors = Ref();
-	const bronzeSponsors = Ref();
-	const crystalSponsors = Ref();
-	let cancel = false;
-
+	const page = Page("Developer Profile");
+	
 	actionStack.push({
-		id: "sponsors_page",
+		id: "developer_profile_page",
 		action: page.hide,
 	});
 
 	page.onhide = () => {
-		actionStack.remove("sponsors_page");
-		cancel = true;
+		actionStack.remove("developer_profile_page");
 	};
 
 	page.body = (
-		<div id="sponsors-page">
-			<div className="cta-section">
-				<p class="cta-text">
-					Join our community of supporters and help shape the future of mobile
-					development
-				</p>
-				<button class="cta-button" onclick={() => Sponsor(render)}>
-					Become a Sponsor <span className="icon favorite"></span>
+		<div id="sponsors-page" style={{ padding: "16px", overflowY: "auto", height: "100%", width: "100%", boxSizing: "border-box" }}>
+			<div className="cta-section" style={{ textAlign: "center", marginBottom: "20px" }}>
+				<p className="cta-text" style={{ fontSize: "1.2rem", fontWeight: "bold" }}>Built by eliwoahzja</p>
+				<button 
+					className="cta-button" 
+					style={{ padding: "8px 16px", background: "var(--active-color)", color: "var(--active-text-color)", border: "none", borderRadius: "8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "8px" }}
+					onclick={() => system.openInBrowser("https://github.com/eliwoahzja")}
+				>
+					View on GitHub <span className="icon github"></span>
 				</button>
 			</div>
-			<div className="sponsors-container">
-				<h2>Acode's Sponsors</h2>
-				<div className="sponsors-list" onclick={handleLinkClick}>
-					<div className="tier">
-						<div className="tier-name">
-							<span className="tier-icon titanium"></span>Titanium
-						</div>
-						<div
-							className="sponsors"
-							data-empty-message="Be the first Titanium Sponsor!"
-							ref={titaniumSponsors}
-						></div>
-					</div>
-					<div className="tier">
-						<div className="tier-name">
-							<span className="tier-icon platinum"></span>Platinum
-						</div>
-						<div
-							className="sponsors"
-							data-empty-message="Be the first Platinum Sponsor!"
-							ref={platinumSponsors}
-						></div>
-					</div>
-					<div className="tier">
-						<div className="tier-name">
-							<span className="tier-icon gold"></span>Gold
-						</div>
-						<div
-							className="sponsors"
-							data-empty-message="Be the first Gold Sponsor!"
-							ref={goldSponsors}
-						></div>
-					</div>
-					<div className="tier">
-						<div className="tier-name">
-							<span className="tier-icon silver"></span>Silver
-						</div>
-						<div
-							className="sponsors"
-							data-empty-message="Be the first Silver Sponsor!"
-							ref={silverSponsors}
-						></div>
-					</div>
-					<div className="tier">
-						<div className="tier-name">
-							<span className="tier-icon bronze"></span>Bronze
-						</div>
-						<div
-							className="sponsors"
-							data-empty-message="Be the first Bronze Sponsor!"
-							ref={bronzeSponsors}
-						></div>
-					</div>
-					<div className="tier">
-						<div className="tier-name">
-							<span className="tier-icon crystal"></span>Crystal
-						</div>
-						<div
-							className="sponsors"
-							data-empty-message="Be the first Crystal Sponsor!"
-							ref={crystalSponsors}
-						></div>
-					</div>
-				</div>
+			<div 
+				className="sponsors-container" 
+				id="github-readme"
+				style={{ 
+					background: "var(--secondary-color)", 
+					color: "var(--secondary-text-color)",
+					padding: "16px", 
+					borderRadius: "8px",
+					lineHeight: "1.6",
+					wordWrap: "break-word"
+				}}
+			>
+				<div style={{ textAlign: "center", padding: "40px" }}>Loading profile...</div>
 			</div>
 		</div>
 	);
 
-	render();
 	app.append(page);
 
-	async function render() {
-		let sponsors = [];
-		try {
-			const res = await fetch(`${config.API_BASE}/sponsors`);
-			if (!res.ok) {
-				throw new Error("Failed to fetch sponsor");
-			}
-
-			const sponsorList = await res.json();
-			if (sponsorList.error) {
-				toast("Unable to load sponsors...");
-				console.error("Error loading sponsors:", sponsorList.error);
-			} else {
-				sponsors = sponsorList;
-				localStorage.setItem("cached_sponsors", JSON.stringify(sponsors));
-			}
-		} catch (error) {
-			toast("Unable to load sponsors...");
-			console.error("Error loading sponsors:", error);
+	fetch("https://api.github.com/repos/eliwoahzja/eliwoahzja/readme", {
+		headers: { "Accept": "application/vnd.github.v3.html" }
+	})
+	.then(res => {
+		if (!res.ok) throw new Error("Failed to fetch");
+		return res.text();
+	})
+	.then(html => {
+		const container = page.body.querySelector("#github-readme");
+		if (container) {
+			container.innerHTML = html;
+			// Style images so they fit
+			container.querySelectorAll("img").forEach(img => {
+				img.style.maxWidth = "100%";
+				img.style.height = "auto";
+			});
 		}
-
-		if (!sponsors.length && "cached_sponsors" in localStorage) {
-			try {
-				const cachedSponsors = helpers.parseJSON(
-					localStorage.getItem("cached_sponsors"),
-				);
-				sponsors = Array.isArray(cachedSponsors) ? cachedSponsors : [];
-			} catch (error) {
-				console.error("Failed to parse cached sponsors", error);
-			}
-		}
-
-		titaniumSponsors.content = "";
-		platinumSponsors.content = "";
-		goldSponsors.content = "";
-		silverSponsors.content = "";
-		bronzeSponsors.content = "";
-		crystalSponsors.content = "";
-
-		for (const sponsor of sponsors) {
-			// Append each sponsor to the corresponding tier
-			switch (sponsor.tier) {
-				case "titanium":
-					titaniumSponsors.append(<SponsorCard {...sponsor} />);
-					break;
-				case "platinum":
-					platinumSponsors.append(<SponsorCard {...sponsor} />);
-					break;
-				case "gold":
-					goldSponsors.append(<SponsorCard {...sponsor} />);
-					break;
-				case "silver":
-					silverSponsors.append(<SponsorCard {...sponsor} />);
-					break;
-				case "bronze":
-					bronzeSponsors.append(<SponsorCard {...sponsor} />);
-					break;
-				case "crystal":
-					crystalSponsors.append(<SponsorCard {...sponsor} />);
-					break;
-			}
-		}
-	}
-}
-
-/**
- * Sponsor Card Component
- * @param {object} props
- * @param {string} props.name - The name of the sponsor
- * @param {string} props.image - The image URL of the sponsor
- * @param {string} props.website - The website URL of the sponsor
- * @param {string} props.tier - The tier of the sponsor
- * @param {string} props.tagline - The tagline of the sponsor
- * @returns {JSX.Element}
- */
-function SponsorCard({ name, image, website, tier, tagline }) {
-	// for crystal tier only text, for bronze slightly bigger text, for silver bigger clickable text,
-	// for gold text with image, for platinum and titanium text with big image
-
-	return (
-		<div
-			attr-role="button"
-			data-website={website}
-			className={`sponsor-card ${tier}`}
-		>
-			{image && (
-				<div className="sponsor-avatar">
-					<img src={`https://acode.app/sponsor/image/${image}`} />
-				</div>
-			)}
-			<div className="sponsor-name">{name}</div>
-			{tagline && <div className="sponsor-tagline">{tagline}</div>}
-			{website && <small className="sponsor-website">{website}</small>}
-		</div>
-	);
-}
-
-/**
- * Handle link click
- * @param {MouseEvent} e
- * @returns
- */
-function handleLinkClick(e) {
-	const target = e.target.closest(".sponsor-card");
-	if (!target) return;
-	const { website } = target.dataset;
-	if (!website) return;
-	if (!website.startsWith("http")) {
-		website = "http://" + website;
-	}
-	system.openInBrowser(website);
+	})
+	.catch(err => {
+		const container = page.body.querySelector("#github-readme");
+		if (container) container.innerHTML = "<div style='text-align: center; color: var(--error-text-color)'>Failed to load GitHub profile.</div>";
+	});
 }

@@ -1,8 +1,8 @@
 import { getApiKey } from "./keyVault";
 import { resolveProviderConfig } from "./providers";
 
-const MAX_PREFIX_CHARS = 12_000;
-const MAX_SUFFIX_CHARS = 4_000;
+const MAX_PREFIX_CHARS = 24_000;
+const MAX_SUFFIX_CHARS = 8_000;
 const DEFAULT_TIMEOUT_SECONDS = 25;
 
 function joinUrl(base, path) {
@@ -21,10 +21,11 @@ function buildPrompt(context) {
 	const suffix = String(context.suffix || "").slice(0, MAX_SUFFIX_CHARS);
 	return [
 		"Complete the code at <CURSOR>.",
-		"Return only the text to insert. Do not use Markdown fences or explanations.",
-		"Preserve indentation and avoid repeating text already after the cursor.",
+		"Return only the exact text to insert. Do not use Markdown fences or explanations.",
+		"CRITICAL: Do NOT generate closing tags, braces, or text that already exist in <SUFFIX>. Stop your generation immediately when it connects to the suffix.",
 		`File: ${context.filename || "untitled"}`,
 		`Language: ${context.language || "text"}`,
+		context.instruction ? `User Instruction: ${context.instruction}` : "",
 		"<PREFIX>",
 		prefix,
 		"</PREFIX>",
@@ -32,7 +33,7 @@ function buildPrompt(context) {
 		"<SUFFIX>",
 		suffix,
 		"</SUFFIX>",
-	].join("\n");
+	].filter(Boolean).join("\n");
 }
 
 function parseJsonResponse(response) {
@@ -167,7 +168,7 @@ function buildProviderRequest(config, apiKey, prompt, maxTokens) {
 				{
 					role: "system",
 					content:
-						"You are a precise code completion engine. Output insertion text only.",
+						"You are a precise code completion engine. Output insertion text only. Never repeat code that is already in the suffix.",
 				},
 				{ role: "user", content: prompt },
 			],
@@ -206,6 +207,7 @@ export function requestInlineCompletion(context, settings = {}) {
 					suffix: String(context.suffix || "").slice(0, MAX_SUFFIX_CHARS),
 					filename: context.filename || "untitled",
 					language: context.language || "text",
+					instruction: context.instruction || "",
 					maxTokens,
 				},
 				{ "X-Acode-AI-Client": "android" },

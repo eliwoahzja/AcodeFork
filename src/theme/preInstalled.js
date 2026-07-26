@@ -547,6 +547,54 @@ blossom.preferredTerminalTheme = "light";
 const custom = createBuiltInTheme("Custom");
 custom.autoDarkened = true;
 
+const dracula = createBuiltInTheme("Dracula");
+dracula.darkenedPrimaryColor = "rgb(33, 34, 44)";
+dracula.primaryColor = "rgb(40, 42, 54)";
+dracula.primaryTextColor = "rgb(248, 248, 242)";
+dracula.secondaryColor = "rgb(68, 71, 90)";
+dracula.secondaryTextColor = "rgb(98, 114, 164)";
+dracula.activeColor = "rgb(189, 147, 249)";
+dracula.linkTextColor = "rgb(139, 233, 253)";
+dracula.borderColor = "rgba(189, 147, 249, 0.2)";
+dracula.popupIconColor = "rgb(248, 248, 242)";
+dracula.popupBackgroundColor = "rgb(33, 34, 44)";
+dracula.popupTextColor = "rgb(248, 248, 242)";
+dracula.popupActiveColor = "rgb(189, 147, 249)";
+dracula.buttonBackgroundColor = "rgb(189, 147, 249)";
+dracula.buttonTextColor = "rgb(40, 42, 54)";
+dracula.buttonActiveColor = "rgb(255, 121, 198)";
+dracula.boxShadowColor = "rgba(0, 0, 0, 0.4)";
+dracula.activeTextColor = "rgb(40, 42, 54)";
+dracula.errorTextColor = "rgb(255, 85, 85)";
+dracula.dangerColor = "rgb(255, 85, 85)";
+dracula.scrollbarColor = "rgba(248, 248, 242, 0.1)";
+dracula.preferredEditorTheme = "dracula";
+dracula.preferredTerminalTheme = "dracula";
+
+const catppuccin = createBuiltInTheme("Catppuccin");
+catppuccin.darkenedPrimaryColor = "rgb(24, 24, 37)";
+catppuccin.primaryColor = "rgb(30, 30, 46)";
+catppuccin.primaryTextColor = "rgb(205, 214, 244)";
+catppuccin.secondaryColor = "rgb(49, 50, 68)";
+catppuccin.secondaryTextColor = "rgb(166, 173, 200)";
+catppuccin.activeColor = "rgb(203, 166, 247)";
+catppuccin.linkTextColor = "rgb(137, 180, 250)";
+catppuccin.borderColor = "rgba(203, 166, 247, 0.2)";
+catppuccin.popupIconColor = "rgb(205, 214, 244)";
+catppuccin.popupBackgroundColor = "rgb(24, 24, 37)";
+catppuccin.popupTextColor = "rgb(205, 214, 244)";
+catppuccin.popupActiveColor = "rgb(203, 166, 247)";
+catppuccin.buttonBackgroundColor = "rgb(203, 166, 247)";
+catppuccin.buttonTextColor = "rgb(30, 30, 46)";
+catppuccin.buttonActiveColor = "rgb(245, 194, 231)";
+catppuccin.boxShadowColor = "rgba(0, 0, 0, 0.4)";
+catppuccin.activeTextColor = "rgb(30, 30, 46)";
+catppuccin.errorTextColor = "rgb(243, 139, 168)";
+catppuccin.dangerColor = "rgb(243, 139, 168)";
+catppuccin.scrollbarColor = "rgba(205, 214, 244, 0.1)";
+catppuccin.preferredEditorTheme = "nord";
+catppuccin.preferredTerminalTheme = "ocean";
+
 export default [
 	system,
 	createBuiltInTheme("Legacy", "dark", "free"),
@@ -571,5 +619,7 @@ export default [
 	mint,
 	sandstone,
 	blossom,
+	dracula,
+	catppuccin,
 	custom,
 ];
