@@ -102,8 +102,8 @@ export default function aiInlineCompletion(
 		constructor(readonly view: EditorView) {}
 
 		update(update: ViewUpdate): void {
-			for (const transaction of update.transactions) {
-				for (const effect of transaction.effects) {
+			for (const tr of update.transactions) {
+				for (const effect of tr.effects) {
 					if (effect.is(setSuggestion)) {
 						this.show(effect.value);
 					}
@@ -116,74 +116,102 @@ export default function aiInlineCompletion(
 			}
 
 			const hasDocChange = update.docChanged;
-			const hasSelectionChange = update.selectionSet;
-			const suggestionActive = this.suggestion !== null;
+			const hasSelChange = update.selectionSet;
 
-			if (!hasDocChange && !hasSelectionChange) return;
+			if (!hasDocChange && !hasSelChange) return;
 
-			if (hasDocChange) {
-				if (suggestionActive) {
-					const selection = this.view.state.selection.main;
-					const typedPast = selection.head > this.suggestion!.from + this.suggestion!.text.length;
-					if (typedPast || !selection.empty || this.view.state.selection.main.head !== this.suggestion!.from) {
-						this.dismissSilent();
-					}
-				}
-				this.schedule();
+			if (hasSelChange && !hasDocChange && this.suggestion !== null) {
+				this.dismissSilent();
+				return;
 			}
 
-			if (hasSelectionChange && !hasDocChange && suggestionActive) {
-				this.dismissSilent();
+			if (hasDocChange) {
+				const sel = this.view.state.selection.main;
+				const sug = this.suggestion;
+
+				if (sug !== null) {
+					if (!sel.empty || sel.head !== sug.from) {
+						this.dismissSilent();
+						this.schedule();
+						return;
+					}
+
+					if (sel.head > sug.from + sug.text.length) {
+						this.dismissSilent();
+						this.schedule();
+						return;
+					}
+
+					const typedLen = sel.head - sug.from;
+					if (typedLen > 0 && typedLen <= sug.text.length) {
+						const typed = this.view.state.doc.sliceString(sug.from, sel.head);
+						if (sug.text.startsWith(typed)) {
+							const remaining = sug.text.slice(typedLen);
+							if (remaining.length > 0) {
+								this.show({ from: sel.head, text: remaining });
+							} else {
+								this.show(null);
+							}
+							return;
+						}
+					}
+
+					this.dismissSilent();
+				}
+
+				this.schedule();
 			}
 		}
 
 		schedule(): void {
-		const selection = this.view.state.selection.main;
-		if (!selection.empty) return;
-		const settings = config.getSettings();
-		const meta = config.getFileContext?.(this.view) || {};
-		const localEnabled = settings.localEnabled !== false;
+			const sel = this.view.state.selection.main;
+			if (!sel.empty) return;
+			const settings = config.getSettings();
+			const meta = config.getFileContext?.(this.view) || {};
+			const localEnabled = settings.localEnabled !== false;
 
-		if (localEnabled) {
-			if (this.localTimer) clearTimeout(this.localTimer);
-			if (settings?.enabled) {
-				this.localTimer = setTimeout(() => {
-					this.localTimer = null;
-					const local = getLocalInlineCompletion({
-						document: this.view.state.doc.toString(),
-						position: selection.head,
-						language: meta.language,
-					});
-					this.show(local);
-				}, LOCAL_POLL_MS);
-			} else {
-				const local = getLocalInlineCompletion({
-					document: this.view.state.doc.toString(),
-					position: selection.head,
-					language: meta.language,
-				});
-				this.show(local);
+			if (localEnabled) {
+				if (this.localTimer) clearTimeout(this.localTimer);
+				if (settings?.enabled) {
+					this.localTimer = setTimeout(() => {
+						this.localTimer = null;
+						this.show(
+							getLocalInlineCompletion({
+								document: this.view.state.doc.toString(),
+								position: sel.head,
+								language: meta.language,
+							}),
+						);
+					}, LOCAL_POLL_MS);
+				} else {
+					this.show(
+						getLocalInlineCompletion({
+							document: this.view.state.doc.toString(),
+							position: sel.head,
+							language: meta.language,
+						}),
+					);
+				}
 			}
-		}
 
-		if (!settings?.enabled) return;
-		if (this.aiTimer) clearTimeout(this.aiTimer);
-		this.aiTimer = setTimeout(() => {
-			this.aiTimer = null;
-			void this.fetch();
-		}, AI_POLL_MS);
+			if (!settings?.enabled) return;
+			if (this.aiTimer) clearTimeout(this.aiTimer);
+			this.aiTimer = setTimeout(() => {
+				this.aiTimer = null;
+				void this.fetch();
+			}, AI_POLL_MS);
 		}
 
 		async fetch(instruction?: string): Promise<void> {
 			const settings = config.getSettings();
-			const selection = this.view.state.selection.main;
-			if (!settings?.enabled || !selection.empty) return;
+			const sel = this.view.state.selection.main;
+			if (!settings?.enabled || !sel.empty) return;
 
-			const from = selection.head;
+			const from = sel.head;
 			const doc = this.view.state.doc;
-			const snapshotLength = doc.length;
+			const snapshotLen = doc.length;
 			const meta = config.getFileContext?.(this.view) || {};
-			const generation = ++this.generation;
+			const gen = ++this.generation;
 			this.request?.cancel();
 			this.request = requestInlineCompletion(
 				{
@@ -198,10 +226,10 @@ export default function aiInlineCompletion(
 
 			try {
 				let text = String(await this.request.promise || "");
-				if (generation !== this.generation) return;
+				if (gen !== this.generation) return;
 				const current = this.view.state;
 				if (
-					current.doc.length !== snapshotLength ||
+					current.doc.length !== snapshotLen ||
 					current.selection.main.head !== from ||
 					!current.selection.main.empty
 				) return;
@@ -211,11 +239,11 @@ export default function aiInlineCompletion(
 				if (!text) return;
 				this.view.dispatch({ effects: setSuggestion.of({ from, text }) });
 			} catch (error) {
-				if (generation === this.generation) {
-					console.warn("AI inline completion request failed", error);
+				if (gen === this.generation) {
+					console.warn("AI completion request failed", error);
 				}
 			} finally {
-				if (generation === this.generation) this.request = null;
+				if (gen === this.generation) this.request = null;
 			}
 		}
 
@@ -233,16 +261,16 @@ export default function aiInlineCompletion(
 		}
 
 		insert(chunk: string, remaining: string): boolean {
-			const suggestion = this.suggestion;
-			if (!suggestion || !chunk) return false;
-			const selection = this.view.state.selection.main;
-			if (!selection.empty || selection.head !== suggestion.from) {
+			const sug = this.suggestion;
+			if (!sug || !chunk) return false;
+			const sel = this.view.state.selection.main;
+			if (!sel.empty || sel.head !== sug.from) {
 				this.dismiss();
 				return false;
 			}
-			const nextFrom = suggestion.from + chunk.length;
+			const nextFrom = sug.from + chunk.length;
 			this.view.dispatch({
-				changes: { from: suggestion.from, insert: chunk },
+				changes: { from: sug.from, insert: chunk },
 				selection: { anchor: nextFrom },
 				effects: setSuggestion.of(
 					remaining ? { from: nextFrom, text: remaining } : null,
