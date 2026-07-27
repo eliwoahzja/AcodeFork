@@ -54,10 +54,7 @@ function nextCompletionChunk(text: string): string {
 }
 
 class CompletionWidget extends WidgetType {
-	constructor(
-		readonly text: string,
-		readonly action: (name: "accept" | "next" | "dismiss") => void,
-	) {
+	constructor(readonly text: string) {
 		super();
 	}
 
@@ -66,35 +63,10 @@ class CompletionWidget extends WidgetType {
 	}
 
 	toDOM(): HTMLElement {
-		const root = document.createElement("span");
-		root.className = "cm-ai-completion";
-
 		const ghost = document.createElement("span");
 		ghost.className = "cm-ai-completion-text";
 		ghost.textContent = this.text;
-		root.append(ghost);
-
-		const controls = document.createElement("span");
-		controls.className = "cm-ai-completion-controls";
-		for (const [name, label] of [
-			["accept", "Accept"],
-			["next", "Next word"],
-			["dismiss", "Dismiss"],
-		] as const) {
-			const button = document.createElement("button");
-			button.type = "button";
-			button.className = `cm-ai-completion-${name}`;
-			button.textContent = label;
-			button.addEventListener("pointerdown", (event) => event.preventDefault());
-			button.addEventListener("click", (event) => {
-				event.preventDefault();
-				event.stopPropagation();
-				this.action(name);
-			});
-			controls.append(button);
-		}
-		root.append(controls);
-		return root;
+		return ghost;
 	}
 
 	ignoreEvent(): boolean {
@@ -102,56 +74,21 @@ class CompletionWidget extends WidgetType {
 	}
 }
 
-function suggestionDecoration(
-	suggestion: Suggestion | null,
-	action: (name: "accept" | "next" | "dismiss") => void,
-): DecorationSet {
+function suggestionDecoration(suggestion: Suggestion | null): DecorationSet {
 	if (!suggestion?.text) return Decoration.none;
 	return Decoration.set([
 		Decoration.widget({
-			widget: new CompletionWidget(suggestion.text, action),
+			widget: new CompletionWidget(suggestion.text),
 			side: 1,
 		}).range(suggestion.from),
 	]);
 }
 
 const styles = EditorView.baseTheme({
-	".cm-ai-completion": {
-		position: "relative",
-		display: "inline",
-	},
 	".cm-ai-completion-text": {
 		color: "rgba(128, 128, 128, 0.72)",
 		whiteSpace: "pre-wrap",
 		pointerEvents: "none",
-	},
-	".cm-ai-completion-controls": {
-		position: "absolute",
-		zIndex: "20",
-		left: "0",
-		top: "calc(100% + 6px)",
-		display: "flex",
-		gap: "4px",
-		padding: "4px",
-		borderRadius: "8px",
-		background: "var(--secondary-color, #252525)",
-		boxShadow: "0 3px 12px rgba(0, 0, 0, .3)",
-		whiteSpace: "nowrap",
-	},
-	".cm-ai-completion-controls button": {
-		minHeight: "32px",
-		padding: "4px 9px",
-		border: "0",
-		borderRadius: "6px",
-		color: "var(--popup-text-color, currentColor)",
-		background: "rgba(127, 127, 127, .18)",
-		font: "inherit",
-		fontSize: "12px",
-		touchAction: "manipulation",
-	},
-	".cm-ai-completion-accept": {
-		background: "var(--primary-color, #4b8bf4) !important",
-		color: "white !important",
 	},
 });
 
@@ -265,14 +202,10 @@ export default function aiInlineCompletion(
 				}
 			}
 
-			show(suggestion: Suggestion | null): void {
-				this.suggestion = suggestion;
-				this.decorations = suggestionDecoration(suggestion, (name) => {
-					if (name === "accept") this.acceptAll();
-					else if (name === "next") this.acceptNext();
-					else this.dismiss();
-				});
-			}
+		show(suggestion: Suggestion | null): void {
+			this.suggestion = suggestion;
+			this.decorations = suggestionDecoration(suggestion);
+		}
 
 			acceptAll(): boolean {
 				return this.insert(this.suggestion?.text || "", "");
@@ -342,6 +275,11 @@ export default function aiInlineCompletion(
 			{
 				key: "Escape",
 				run: (view) => view.plugin(pluginExtension)?.dismiss() ?? false,
+			},
+			{
+				// Supermaven-style: accept just the next word/chunk of the suggestion.
+				key: "Ctrl-ArrowRight",
+				run: (view) => view.plugin(pluginExtension)?.acceptNext() ?? false,
 			},
 			{
 				key: "Alt-\\",

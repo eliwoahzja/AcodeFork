@@ -43,7 +43,7 @@ import { handleLineNumberClick } from "cm/lineNumberSelection";
 import localWordCompletions, {
 	localWordCompletionSource,
 } from "cm/localWordCompletions";
-import { htmlCompletionSource } from "cm/htmlCompletions";
+import htmlCompletionsExtension, { htmlCompletionSource } from "cm/htmlCompletions";
 import lspApi from "cm/lsp/api";
 import lspClientManager, { lspCompletionEnabled } from "cm/lsp/clientManager";
 import {
@@ -934,6 +934,9 @@ async function EditorManager($header, $body) {
 	const localWordCompletionCompartment = new Compartment();
 	// Compartment for optional AI inline ghost-text completions
 	const aiInlineCompletionCompartment = new Compartment();
+	// Compartment for HTML/CSS/JS local completion sources (augments languageData,
+	// never replaces Emmet or LSP completions like autocompletion's override does)
+	const htmlCompletionsCompartment = new Compartment();
 	// Compartment for rainbow bracket colorizer
 	const rainbowCompartment = new Compartment();
 	// Compartment for indent guides
@@ -990,22 +993,22 @@ async function EditorManager($header, $body) {
  			const override = [];
  			if (useHtmlCompletion) override.push(htmlCompletionSource);
  			override.push(getLspCompletionSource);
-
+ 
  			if (appSettings?.value?.localWordCompletion) {
  				override.push(localWordCompletionSource);
  			}
-
+ 
  			if (appSettings?.value?.useEmmet !== false) {
  				override.push(getEmmetCompletionSource);
  			}
  			config.override = override;
- 		} else if (useHtmlCompletion) {
- 			// When language completion is enabled, add HTML completions as a
- 			// high-priority source so tag/attribute suggestions appear instantly
- 			// alongside LSP and Emmet results.
- 			config.override = [htmlCompletionSource];
  		}
-
+ 		// When languageCompletion is enabled (default), do NOT set config.override
+ 		// — using override REPLACES all default sources (including Emmet, language
+ 		// data, and LSP completions). Instead, HTML/CSS/JS completions are added via
+ 		// the separate `htmlCompletions()` extension compartment below, which uses
+ 		// languageData.of() to augment sources rather than replace them.
+ 
  		return config;
  	}
 
@@ -1296,6 +1299,22 @@ async function EditorManager($header, $body) {
 						};
 					},
 				});
+			},
+		},
+		{
+			keys: ["languageCompletion", "htmlCompletion"],
+			compartments: [htmlCompletionsCompartment],
+			build() {
+				const languageCompletionDisabled =
+					appSettings?.value?.languageCompletion === false;
+				const useHtmlCompletion =
+					appSettings?.value?.htmlCompletion ?? true;
+				// The override mode (languageCompletion === false) already injects
+				// htmlCompletionSource into config.override. When languageCompletion
+				// is enabled (default), we use the languageData-augmenting extension
+				// so HTML/CSS/JS completions appear WITHOUT replacing Emmet/LSP.
+				if (languageCompletionDisabled || !useHtmlCompletion) return [];
+				return htmlCompletionsExtension();
 			},
 		},
 		{
