@@ -206,6 +206,7 @@ export default function aiInlineCompletion(
 			const settings = config.getSettings();
 			const sel = this.view.state.selection.main;
 			if (!settings?.enabled || !sel.empty) return;
+			if (typeof navigator !== "undefined" && !navigator.onLine) return;
 
 			const from = sel.head;
 			const doc = this.view.state.doc;

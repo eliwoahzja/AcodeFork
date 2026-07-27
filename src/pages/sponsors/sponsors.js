@@ -18,8 +18,25 @@ export default function Sponsors() {
 		<div id="sponsors-page" style={{ padding: "20px", overflowY: "auto", height: "100%", width: "100%", boxSizing: "border-box", background: "var(--bg-color)" }}>
 			<div style={{ maxWidth: "600px", margin: "0 auto", background: "var(--secondary-color)", borderRadius: "12px", overflow: "hidden", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
 				
-				{/* Header Banner */}
-				<div style={{ height: "120px", background: "linear-gradient(135deg, var(--active-color) 0%, var(--primary-color) 100%)" }}></div>
+				// GitHub profile banner — try a static banner image, fall back to gradient
+	const bannerImage = new Image();
+	bannerImage.src = "https://capsule-render.vercel.app/api?type=waving&color=auto&height=140&section=header&text=Eliwoahzja&fontSize=32&animation=fadeIn";
+	bannerImage.onload = () => {
+		const el = document.getElementById("profile-banner");
+		if (el) {
+			el.style.backgroundImage = `url('${bannerImage.src}')`;
+			el.style.backgroundSize = "cover";
+			el.style.backgroundRepeat = "no-repeat";
+			el.style.backgroundPosition = "center";
+		}
+	};
+
+	page.body = (
+		<div id="sponsors-page" style={{ padding: "20px", overflowY: "auto", height: "100%", width: "100%", boxSizing: "border-box", background: "var(--bg-color)" }}>
+			<div style={{ maxWidth: "600px", margin: "0 auto", background: "var(--secondary-color)", borderRadius: "12px", overflow: "hidden", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
+				
+				{/* Header Banner with GIF support */}
+				<div id="profile-banner" style={{ height: "140px", background: "linear-gradient(135deg, var(--active-color) 0%, var(--primary-color) 100%)", position: "relative", overflow: "hidden" }}></div>
 				
 				{/* Profile Info */}
 				<div style={{ padding: "0 20px 20px 20px", position: "relative", marginTop: "-50px", textAlign: "center" }}>
