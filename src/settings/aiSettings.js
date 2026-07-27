@@ -7,7 +7,7 @@ import { getProviderOptions, getProviderPreset } from "lib/ai/providers";
 import appSettings from "lib/settings";
 
 const fallbackSettings = {
-	enabled: true,
+enabled: false,
 	localEnabled: true,
 	mode: "byok",
 	managedEndpoint: "",

@@ -77,8 +77,8 @@ function suggestionDecoration(suggestion: Suggestion | null): DecorationSet {
 	]);
 }
 
-const TRIAGE_THROTTLE_MS = 60;
-const AI_TRIGGER_DELAY_MS = 200;
+const LOCAL_POLL_MS = 30;
+const AI_POLL_MS = 120;
 
 const styles = EditorView.baseTheme({
 	".cm-ai-completion-text": {
@@ -138,15 +138,15 @@ export default function aiInlineCompletion(
 		}
 
 		schedule(): void {
-			const settings = config.getSettings();
-			const selection = this.view.state.selection.main;
-			if (!selection.empty) return;
-			const meta = config.getFileContext?.(this.view) || {};
+		const selection = this.view.state.selection.main;
+		if (!selection.empty) return;
+		const settings = config.getSettings();
+		const meta = config.getFileContext?.(this.view) || {};
+		const localEnabled = settings.localEnabled !== false;
 
-			const localEnabled = settings.localEnabled !== false;
-
-			if (localEnabled) {
-				if (this.localTimer) clearTimeout(this.localTimer);
+		if (localEnabled) {
+			if (this.localTimer) clearTimeout(this.localTimer);
+			if (settings?.enabled) {
 				this.localTimer = setTimeout(() => {
 					this.localTimer = null;
 					const local = getLocalInlineCompletion({
@@ -155,15 +155,23 @@ export default function aiInlineCompletion(
 						language: meta.language,
 					});
 					this.show(local);
-				}, TRIAGE_THROTTLE_MS);
+				}, LOCAL_POLL_MS);
+			} else {
+				const local = getLocalInlineCompletion({
+					document: this.view.state.doc.toString(),
+					position: selection.head,
+					language: meta.language,
+				});
+				this.show(local);
 			}
+		}
 
-			if (!settings?.enabled) return;
-			if (this.aiTimer) clearTimeout(this.aiTimer);
-			this.aiTimer = setTimeout(() => {
-				this.aiTimer = null;
-				void this.fetch();
-			}, AI_TRIGGER_DELAY_MS);
+		if (!settings?.enabled) return;
+		if (this.aiTimer) clearTimeout(this.aiTimer);
+		this.aiTimer = setTimeout(() => {
+			this.aiTimer = null;
+			void this.fetch();
+		}, AI_POLL_MS);
 		}
 
 		async fetch(instruction?: string): Promise<void> {
