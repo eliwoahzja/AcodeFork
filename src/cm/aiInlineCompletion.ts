@@ -9,10 +9,12 @@ import {
 	WidgetType,
 } from "@codemirror/view";
 import { requestInlineCompletion } from "lib/ai/completionService";
+import { getLocalInlineCompletion } from "cm/localInlineCompletions";
 import prompt from "dialogs/prompt";
 
 interface AiCompletionSettings {
 	enabled?: boolean;
+	localEnabled?: boolean;
 	mode?: "managed" | "byok";
 	provider?: string;
 	endpoint?: string;
@@ -197,8 +199,19 @@ export default function aiInlineCompletion(
 
 			schedule(): void {
 				const settings = config.getSettings();
-				if (!settings?.enabled) return;
 				if (!this.view.state.selection.main.empty) return;
+				const selection = this.view.state.selection.main;
+				const metadata = config.getFileContext?.(this.view) || {};
+				if (settings.localEnabled !== false) {
+					this.show(
+						getLocalInlineCompletion({
+							document: this.view.state.doc.toString(),
+							position: selection.head,
+							language: metadata.language,
+						}),
+					);
+				}
+				if (!settings?.enabled) return;
 				if (this.timer) clearTimeout(this.timer);
 				const delay = Math.max(150, Math.min(Number(settings.debounceMs) || 650, 5000));
 				this.timer = setTimeout(() => {

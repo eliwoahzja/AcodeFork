@@ -43,6 +43,7 @@ import { handleLineNumberClick } from "cm/lineNumberSelection";
 import localWordCompletions, {
 	localWordCompletionSource,
 } from "cm/localWordCompletions";
+import { htmlCompletionSource } from "cm/htmlCompletions";
 import lspApi from "cm/lsp/api";
 import lspClientManager, { lspCompletionEnabled } from "cm/lsp/clientManager";
 import {
@@ -974,30 +975,39 @@ async function EditorManager($header, $body) {
 		}
 	}
 
-	function getAutocompleteConfig() {
-		const live = !!appSettings?.value?.liveAutoCompletion;
-		const config = {
-			activateOnTyping: live,
-			activateOnTypingDelay: isCoarsePointerDevice() ? 220 : 100,
-		};
+ 	function getAutocompleteConfig() {
+ 		const live = !!appSettings?.value?.liveAutoCompletion;
+ 		const useHtmlCompletion = appSettings?.value?.htmlCompletion ?? true;
+ 		const config = {
+ 			activateOnTyping: live,
+ 			activateOnTypingDelay: isCoarsePointerDevice() ? 220 : 100,
+ 		};
 
-		if (appSettings?.value?.languageCompletion === false) {
-			// CodeMirror override mode bypasses normal completion discovery,
-			// including plugin-provided sources. Re-add the sources that should
-			// survive this setting explicitly.
-			config.override = [getLspCompletionSource];
+ 		if (appSettings?.value?.languageCompletion === false) {
+ 			// CodeMirror override mode bypasses normal completion discovery,
+ 			// including plugin-provided sources. Re-add the sources that should
+ 			// survive this setting explicitly.
+ 			const override = [];
+ 			if (useHtmlCompletion) override.push(htmlCompletionSource);
+ 			override.push(getLspCompletionSource);
 
-			if (appSettings?.value?.localWordCompletion) {
-				config.override.push(localWordCompletionSource);
-			}
+ 			if (appSettings?.value?.localWordCompletion) {
+ 				override.push(localWordCompletionSource);
+ 			}
 
-			if (appSettings?.value?.useEmmet !== false) {
-				config.override.push(getEmmetCompletionSource);
-			}
-		}
+ 			if (appSettings?.value?.useEmmet !== false) {
+ 				override.push(getEmmetCompletionSource);
+ 			}
+ 			config.override = override;
+ 		} else if (useHtmlCompletion) {
+ 			// When language completion is enabled, add HTML completions as a
+ 			// high-priority source so tag/attribute suggestions appear instantly
+ 			// alongside LSP and Emmet results.
+ 			config.override = [htmlCompletionSource];
+ 		}
 
-		return config;
-	}
+ 		return config;
+ 	}
 
 	function makeFontTheme() {
 		const fontSize = appSettings?.value?.fontSize || "12px";
@@ -1275,7 +1285,7 @@ async function EditorManager($header, $body) {
 			compartments: [aiInlineCompletionCompartment],
 			build() {
 				const aiSettings = appSettings?.value?.aiCompletion;
-				if (!aiSettings?.enabled) return [];
+				if (!aiSettings?.enabled && aiSettings?.localEnabled === false) return [];
 				return aiInlineCompletion({
 					getSettings: () => appSettings?.value?.aiCompletion || {},
 					getFileContext(targetView) {

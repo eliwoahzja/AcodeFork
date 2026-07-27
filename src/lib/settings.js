@@ -42,13 +42,14 @@ class Settings {
 	};
 	#aiCompletionSettings = {
 		enabled: true,
+		localEnabled: true,
 		mode: "byok",
 		managedEndpoint: "",
 		provider: "nvidia",
 		endpoint: "https://integrate.api.nvidia.com/v1",
 		model: "meta/llama-3.1-70b-instruct",
 		maxTokens: 128,
-		debounceMs: 650,
+		debounceMs: 250,
 	};
 	#fileBrowserSettings = {
 		showHiddenFiles: false,
@@ -163,6 +164,7 @@ class Settings {
 			liveAutoCompletion: true,
 			localWordCompletion: true,
 			languageCompletion: true,
+			htmlCompletion: true,
 			recommendExtensions: true,
 			useEmmet: true,
 			autoIndent: true,

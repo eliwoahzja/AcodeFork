@@ -161,6 +161,13 @@ export default function editorSettings() {
 			category: categories.assistance,
 		},
 		{
+			key: "htmlCompletion",
+			text: strings["html completion"] || "HTML tag/attribute completion",
+			checkbox: values.htmlCompletion ?? true,
+			info: strings["settings-info-editor-html-completion"] || "Fast, offline HTML tag and attribute suggestions (like Supermaven).",
+			category: categories.assistance,
+		},
+		{
 			key: "recommendExtensions",
 			text: strings["recommend extensions"],
 			checkbox: values.recommendExtensions ?? true,

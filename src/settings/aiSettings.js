@@ -8,13 +8,14 @@ import appSettings from "lib/settings";
 
 const fallbackSettings = {
 	enabled: true,
+	localEnabled: true,
 	mode: "byok",
 	managedEndpoint: "",
 	provider: "nvidia",
 	endpoint: "https://integrate.api.nvidia.com/v1",
 	model: "meta/llama-3.1-70b-instruct",
 	maxTokens: 128,
-	debounceMs: 650,
+	debounceMs: 250,
 };
 
 function currentSettings() {
@@ -61,10 +62,17 @@ function createPage() {
 	};
 	const items = [
 		{
+			key: "localEnabled",
+			text: "Local smart inline completions",
+			checkbox: values.localEnabled !== false,
+			info: "Instant offline suggestions for HTML elements and attributes. Press Tab to insert them.",
+			category: categories.general,
+		},
+		{
 			key: "enabled",
-			text: "AI inline autocomplete",
+			text: "AI model suggestions",
 			checkbox: values.enabled,
-			info: "Show private, current-file ghost-text suggestions while you type.",
+			info: "Use your configured provider for broader, current-file ghost-text suggestions.",
 			category: categories.general,
 		},
 		{
