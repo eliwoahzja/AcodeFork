@@ -46,13 +46,6 @@ export interface AiInlineCompletionConfig {
 
 const setSuggestion = StateEffect.define<Suggestion | null>();
 
-function nextCompletionChunk(text: string): string {
-	const match = text.match(
-		/^\s*(?:[\p{L}\p{N}_$]+|[^\s\p{L}\p{N}_$])(?:[ \t]+)?/u,
-	);
-	return match?.[0] || Array.from(text)[0] || "";
-}
-
 class CompletionWidget extends WidgetType {
 	constructor(readonly text: string) {
 		super();
@@ -84,6 +77,9 @@ function suggestionDecoration(suggestion: Suggestion | null): DecorationSet {
 	]);
 }
 
+const TRIAGE_THROTTLE_MS = 60;
+const AI_TRIGGER_DELAY_MS = 200;
+
 const styles = EditorView.baseTheme({
 	".cm-ai-completion-text": {
 		color: "rgba(128, 128, 128, 0.72)",
@@ -96,170 +92,194 @@ export default function aiInlineCompletion(
 	config: AiInlineCompletionConfig,
 ): Extension {
 	class AiCompletionPlugin {
-			decorations: DecorationSet = Decoration.none;
-			suggestion: Suggestion | null = null;
-			timer: ReturnType<typeof setTimeout> | null = null;
-			request: CancellableRequest | null = null;
-			generation = 0;
+		decorations: DecorationSet = Decoration.none;
+		suggestion: Suggestion | null = null;
+		localTimer: ReturnType<typeof setTimeout> | null = null;
+		aiTimer: ReturnType<typeof setTimeout> | null = null;
+		request: CancellableRequest | null = null;
+		generation = 0;
 
-			constructor(readonly view: EditorView) {}
+		constructor(readonly view: EditorView) {}
 
-			update(update: ViewUpdate): void {
-				let effectSeen = false;
-				let effectValue = null;
-				for (const transaction of update.transactions) {
-					for (const effect of transaction.effects) {
-						if (!effect.is(setSuggestion)) continue;
-						effectSeen = true;
-						effectValue = effect.value;
+		update(update: ViewUpdate): void {
+			for (const transaction of update.transactions) {
+				for (const effect of transaction.effects) {
+					if (effect.is(setSuggestion)) {
 						this.show(effect.value);
 					}
 				}
+			}
 
-				if (update.focusChanged && !update.view.hasFocus) {
-					this.cancelAndClear();
-					return;
-				}
+			if (update.focusChanged && !update.view.hasFocus) {
+				this.cancelAndClear();
+				return;
+			}
 
-				if (effectSeen) {
-					if (!effectValue && update.docChanged) {
-						this.schedule();
+			const hasDocChange = update.docChanged;
+			const hasSelectionChange = update.selectionSet;
+			const suggestionActive = this.suggestion !== null;
+
+			if (!hasDocChange && !hasSelectionChange) return;
+
+			if (hasDocChange) {
+				if (suggestionActive) {
+					const selection = this.view.state.selection.main;
+					const typedPast = selection.head > this.suggestion!.from + this.suggestion!.text.length;
+					if (typedPast || !selection.empty || this.view.state.selection.main.head !== this.suggestion!.from) {
+						this.dismissSilent();
 					}
-					return;
 				}
-
-				if (update.docChanged || update.selectionSet) {
-					this.cancelAndClear();
-					if (update.docChanged) this.schedule();
-				}
+				this.schedule();
 			}
 
-			schedule(): void {
-				const settings = config.getSettings();
-				if (!this.view.state.selection.main.empty) return;
-				const selection = this.view.state.selection.main;
-				const metadata = config.getFileContext?.(this.view) || {};
-				if (settings.localEnabled !== false) {
-					this.show(
-						getLocalInlineCompletion({
-							document: this.view.state.doc.toString(),
-							position: selection.head,
-							language: metadata.language,
-						}),
-					);
-				}
-				if (!settings?.enabled) return;
-				if (this.timer) clearTimeout(this.timer);
-				const delay = Math.max(150, Math.min(Number(settings.debounceMs) || 650, 5000));
-				this.timer = setTimeout(() => {
-					this.timer = null;
-					void this.fetch();
-				}, delay);
+			if (hasSelectionChange && !hasDocChange && suggestionActive) {
+				this.dismissSilent();
+			}
+		}
+
+		schedule(): void {
+			const settings = config.getSettings();
+			const selection = this.view.state.selection.main;
+			if (!selection.empty) return;
+			const meta = config.getFileContext?.(this.view) || {};
+
+			const localEnabled = settings.localEnabled !== false;
+
+			if (localEnabled) {
+				if (this.localTimer) clearTimeout(this.localTimer);
+				this.localTimer = setTimeout(() => {
+					this.localTimer = null;
+					const local = getLocalInlineCompletion({
+						document: this.view.state.doc.toString(),
+						position: selection.head,
+						language: meta.language,
+					});
+					this.show(local);
+				}, TRIAGE_THROTTLE_MS);
 			}
 
-			async fetch(instruction?: string): Promise<void> {
-				const settings = config.getSettings();
-				const selection = this.view.state.selection.main;
-				if (!settings?.enabled || !selection.empty) return;
+			if (!settings?.enabled) return;
+			if (this.aiTimer) clearTimeout(this.aiTimer);
+			this.aiTimer = setTimeout(() => {
+				this.aiTimer = null;
+				void this.fetch();
+			}, AI_TRIGGER_DELAY_MS);
+		}
 
-				const from = selection.head;
-				const doc = this.view.state.doc;
-				const snapshotLength = doc.length;
-				const metadata = config.getFileContext?.(this.view) || {};
-				const generation = ++this.generation;
-				this.request?.cancel();
-				this.request = requestInlineCompletion(
-					{
-						prefix: doc.sliceString(Math.max(0, from - 12_000), from),
-						suffix: doc.sliceString(from, Math.min(doc.length, from + 4_000)),
-						filename: metadata.filename || "untitled",
-						language: metadata.language || "text",
-						instruction: instruction,
-					},
-					settings,
-				) as CancellableRequest;
+		async fetch(instruction?: string): Promise<void> {
+			const settings = config.getSettings();
+			const selection = this.view.state.selection.main;
+			if (!settings?.enabled || !selection.empty) return;
 
-				try {
-					let text = String(await this.request.promise || "");
-					if (generation !== this.generation) return;
-					const current = this.view.state;
-					if (
-						current.doc.length !== snapshotLength ||
-						current.selection.main.head !== from ||
-						!current.selection.main.empty
-					) return;
+			const from = selection.head;
+			const doc = this.view.state.doc;
+			const snapshotLength = doc.length;
+			const meta = config.getFileContext?.(this.view) || {};
+			const generation = ++this.generation;
+			this.request?.cancel();
+			this.request = requestInlineCompletion(
+				{
+					prefix: doc.sliceString(Math.max(0, from - 12_000), from),
+					suffix: doc.sliceString(from, Math.min(doc.length, from + 4_000)),
+					filename: meta.filename || "untitled",
+					language: meta.language || "text",
+					instruction: instruction,
+				},
+				settings,
+			) as CancellableRequest;
 
-					const suffix = current.doc.sliceString(from, Math.min(current.doc.length, from + text.length));
-					if (suffix && text.startsWith(suffix)) text = text.slice(suffix.length);
-					if (!text) return;
-					this.view.dispatch({ effects: setSuggestion.of({ from, text }) });
-				} catch (error) {
-					if (generation === this.generation) {
-						console.warn("AI inline completion request failed", error);
-					}
-				} finally {
-					if (generation === this.generation) this.request = null;
+			try {
+				let text = String(await this.request.promise || "");
+				if (generation !== this.generation) return;
+				const current = this.view.state;
+				if (
+					current.doc.length !== snapshotLength ||
+					current.selection.main.head !== from ||
+					!current.selection.main.empty
+				) return;
+
+				const suffix = current.doc.sliceString(from, Math.min(current.doc.length, from + text.length));
+				if (suffix && text.startsWith(suffix)) text = text.slice(suffix.length);
+				if (!text) return;
+				this.view.dispatch({ effects: setSuggestion.of({ from, text }) });
+			} catch (error) {
+				if (generation === this.generation) {
+					console.warn("AI inline completion request failed", error);
 				}
+			} finally {
+				if (generation === this.generation) this.request = null;
 			}
+		}
 
 		show(suggestion: Suggestion | null): void {
+			if (suggestion && (!suggestion.text || suggestion.text.length < 1)) {
+				this.show(null);
+				return;
+			}
 			this.suggestion = suggestion;
 			this.decorations = suggestionDecoration(suggestion);
 		}
 
-			acceptAll(): boolean {
-				return this.insert(this.suggestion?.text || "", "");
-			}
+		accept(): boolean {
+			return this.insert(this.suggestion?.text || "", "");
+		}
 
-			acceptNext(): boolean {
-				if (!this.suggestion) return false;
-				const chunk = nextCompletionChunk(this.suggestion.text);
-				return this.insert(chunk, this.suggestion.text.slice(chunk.length));
+		insert(chunk: string, remaining: string): boolean {
+			const suggestion = this.suggestion;
+			if (!suggestion || !chunk) return false;
+			const selection = this.view.state.selection.main;
+			if (!selection.empty || selection.head !== suggestion.from) {
+				this.dismiss();
+				return false;
 			}
+			const nextFrom = suggestion.from + chunk.length;
+			this.view.dispatch({
+				changes: { from: suggestion.from, insert: chunk },
+				selection: { anchor: nextFrom },
+				effects: setSuggestion.of(
+					remaining ? { from: nextFrom, text: remaining } : null,
+				),
+				userEvent: "input.complete.ai",
+			});
+			return true;
+		}
 
-			insert(chunk: string, remaining: string): boolean {
-				const suggestion = this.suggestion;
-				if (!suggestion || !chunk) return false;
-				const selection = this.view.state.selection.main;
-				if (!selection.empty || selection.head !== suggestion.from) {
-					this.dismiss();
-					return false;
-				}
-				const nextFrom = suggestion.from + chunk.length;
-				this.view.dispatch({
-					changes: { from: suggestion.from, insert: chunk },
-					selection: { anchor: nextFrom },
-					effects: setSuggestion.of(
-						remaining ? { from: nextFrom, text: remaining } : null,
-					),
-					userEvent: "input.complete.ai",
-				});
-				return true;
-			}
+		dismiss(): boolean {
+			if (!this.suggestion) return false;
+			this.generation++;
+			this.clearTimers();
+			this.request?.cancel();
+			this.request = null;
+			this.view.dispatch({ effects: setSuggestion.of(null) });
+			return true;
+		}
 
-			dismiss(): boolean {
-				if (!this.suggestion) return false;
-				this.generation++;
-				if (this.timer) clearTimeout(this.timer);
-				this.timer = null;
-				this.request?.cancel();
-				this.request = null;
-				this.view.dispatch({ effects: setSuggestion.of(null) });
-				return true;
-			}
+		dismissSilent(): void {
+			this.generation++;
+			this.clearTimers();
+			this.request?.cancel();
+			this.request = null;
+			this.show(null);
+		}
 
-			cancelAndClear(): void {
-				this.generation++;
-				if (this.timer) clearTimeout(this.timer);
-				this.timer = null;
-				this.request?.cancel();
-				this.request = null;
-				this.show(null);
-			}
+		clearTimers(): void {
+			if (this.localTimer) clearTimeout(this.localTimer);
+			this.localTimer = null;
+			if (this.aiTimer) clearTimeout(this.aiTimer);
+			this.aiTimer = null;
+		}
 
-			destroy(): void {
-				this.cancelAndClear();
-			}
+		cancelAndClear(): void {
+			this.generation++;
+			this.clearTimers();
+			this.request?.cancel();
+			this.request = null;
+			this.show(null);
+		}
+
+		destroy(): void {
+			this.cancelAndClear();
+		}
 	}
 
 	const pluginExtension = ViewPlugin.fromClass(AiCompletionPlugin, {
@@ -270,16 +290,11 @@ export default function aiInlineCompletion(
 		keymap.of([
 			{
 				key: "Tab",
-				run: (view) => view.plugin(pluginExtension)?.acceptAll() ?? false,
+				run: (view) => view.plugin(pluginExtension)?.accept() ?? false,
 			},
 			{
 				key: "Escape",
 				run: (view) => view.plugin(pluginExtension)?.dismiss() ?? false,
-			},
-			{
-				// Supermaven-style: accept just the next word/chunk of the suggestion.
-				key: "Ctrl-ArrowRight",
-				run: (view) => view.plugin(pluginExtension)?.acceptNext() ?? false,
 			},
 			{
 				key: "Alt-\\",
