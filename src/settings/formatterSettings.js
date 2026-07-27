@@ -9,8 +9,10 @@ export default function formatterSettings(languageName) {
 	const { formatters } = acode;
 	const languagesLabel = strings.languages || "Languages";
 
-	// Build items from CodeMirror modelist
-	const items = getModes()
+	const formatterOptions = formatters.map(({ id, name }) => [id, name]);
+	formatterOptions.unshift([null, "None (pick per language)"]);
+
+const items = getModes()
 		.slice()
 		.sort((a, b) =>
 			String(a.caption || a.name).localeCompare(String(b.caption || b.name)),
@@ -18,7 +20,6 @@ export default function formatterSettings(languageName) {
 		.map((mode) => {
 			const { name, caption, extensions } = mode;
 			const formatterID = values.formatter[name] || null;
-			// Only pass real extensions (skip anchored filename patterns like ^Dockerfile)
 			const extList = String(extensions)
 				.split("|")
 				.filter((e) => e && !e.startsWith("^"));
@@ -31,17 +32,28 @@ export default function formatterSettings(languageName) {
 				icon: helpers.getIconForFile(`sample.${sampleExt}`),
 				value: formatterID,
 				valueText: (value) => {
-					const formatter = formatters.find(({ id }) => id === value);
-					if (formatter) {
-						return formatter.name;
-					}
-					return strings.none;
+					const fmt = formatters.find(({ id }) => id === value);
+					return fmt ? fmt.name : strings.none;
 				},
 				select: options,
 				chevron: true,
 				category: languagesLabel,
 			};
 		});
+
+	items.unshift({
+		key: "__default__",
+		text: "Default for all languages",
+		value: values.formatter.__default__ || null,
+		valueText: (value) => {
+			const fmt = formatters.find(({ id }) => id === value);
+			return fmt ? fmt.name : "Per language";
+		},
+		select: formatterOptions,
+		chevron: true,
+		category: "General",
+		info: "Applies to every language unless explicitly overridden below.",
+	});
 
 	items.unshift({
 		note: strings["settings-note-formatter-settings"],

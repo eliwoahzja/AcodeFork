@@ -24,6 +24,8 @@ import tomorrowNightBright, {
 	config as tomorrowNightBrightConfig,
 } from "./tomorrowNightBright";
 import vscodeDark, { config as vscodeDarkConfig } from "./vscodeDark";
+import nightOwl, { config as nightOwlConfig } from "./nightOwl";
+import cobalt2, { config as cobalt2Config } from "./cobalt2";
 
 const oneDarkConfig = {
 	name: "one_dark",
@@ -274,6 +276,20 @@ addTheme(
 	!!vscodeDarkConfig.dark,
 	() => vscodeDark(),
 	vscodeDarkConfig,
+);
+addTheme(
+	nightOwlConfig.name,
+	"Night Owl",
+	!!nightOwlConfig.dark,
+	() => nightOwl(),
+	nightOwlConfig,
+);
+addTheme(
+	cobalt2Config.name,
+	"Cobalt2",
+	!!cobalt2Config.dark,
+	() => cobalt2(),
+	cobalt2Config,
 );
 
 export default {

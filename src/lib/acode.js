@@ -793,7 +793,7 @@ class Acode {
 		}
 		const modeName = resolvedMode || "text";
 		const formatterMap = appSettings.value.formatter || {};
-		const formatterId = formatterMap[modeName];
+		const formatterId = formatterMap[modeName] || formatterMap.__default__;
 		const formatter = this.#formatter.find(({ id }) => id === formatterId);
 
 		if (!formatter) {
